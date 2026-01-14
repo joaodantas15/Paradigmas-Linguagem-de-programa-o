@@ -1,0 +1,420 @@
+import React, { useState } from 'react';
+import { 
+  Play, 
+  Code, 
+  Terminal, 
+  CheckCircle2, 
+  FileCode, 
+  Cpu,
+  BookOpen,
+  ChevronRight,
+  Braces,
+  Binary,
+  Layers // Adicionado o ícone que estava faltando
+} from 'lucide-react';
+
+// --- CONFIGURAÇÃO DA GRAMÁTICA ---
+const UPDATED_GRAMMAR = `grammar Enquanto;
+
+programa : seqComando;
+
+// Tarefa 4: Semicolon como finalizador
+seqComando: (comando ';')+ ;
+
+comando: IDs ':=' expressoes                                     # atribuicao    // Tarefa 9: Atribuição Paralela
+       | 'skip'                                                  # skip
+       | 'se' booleano 'entao' comando 
+         ('senaose' booleano 'entao' comando)* ('senao' comando)? # se            // Tarefa 7: senaose
+       | 'enquanto' booleano 'faca' comando                      # enquanto
+       | 'para' ID 'de' expressao 'ate' expressao 'faca' comando # para          // Tarefa 5: para..ate
+       | 'repita' expressao 'vezes' comando                      # repita        // Tarefa 6: repita x vezes
+       | 'escolha' expressao 
+         (expressao ':' comando)* ('_' ':' comando)?             # escolha       // Tarefa 8: escolha (switch)
+       | 'exiba' (TEXTO | expressao)                             # exiba         // Tarefa 10: exiba texto/num
+       | '{' seqComando '}'                                      # bloco
+       ;
+
+IDs : ID (',' ID)*;
+expressoes : expressao (',' expressao)*;
+
+expressao: INT                                                   # inteiro
+         | 'leia'                                                # leia
+         | ID                                                    # id
+         | expressao '^' expressao                               # opBin         // Tarefa 1: Exponenciação
+         | expressao ('*' | '/') expressao                       # opBin         // Tarefa 1: Divisão
+         | expressao ('+' | '-') expressao                       # opBin
+         | '(' expressao ')'                                     # expPar
+         ;
+
+booleano: BOOLEANO                                               # bool
+        | expressao ('=' | '<=' | '<' | '>' | '>=' | '<>') expressao # opRel     // Tarefa 3: Relacionais
+        | 'nao' booleano                                         # naoLogico
+        | booleano 'e' booleano                                  # eLogico
+        | booleano ('ou' | 'xor') booleano                       # ouXorLogico   // Tarefa 2: ou/xor
+        | '(' booleano ')'                                       # boolPar
+        ;`;
+
+// --- DADOS DAS TAREFAS E CÓDIGO TS ---
+const TASK_DETAILS = {
+  1: {
+    title: "Operadores Aritméticos (/ e ^)",
+    explanation: "Implementamos a divisão inteira e a exponenciação. No TypeScript, a exponenciação é resolvida via Math.pow() ou o operador **.",
+    code: `// Implementação no Interpreter (TS)
+visitOpBin(ctx: OpBinContext): number {
+  const left = this.visit(ctx.expressao(0));
+  const right = this.visit(ctx.expressao(1));
+  const op = ctx.getChild(1).getText();
+
+  switch(op) {
+    case '/': return Math.floor(left / right); // Divisão inteira
+    case '^': return Math.pow(left, right);    // Exponenciação
+    default: return super.visitOpBin(ctx);
+  }
+}`
+  },
+  2: {
+    title: "Lógica Booleana (ou e xor)",
+    explanation: "Adicionamos operadores de disjunção inclusiva (ou) e exclusiva (xor). O XOR é simulado comparando se os valores são diferentes.",
+    code: `visitOuXorLogico(ctx: OuXorLogicoContext): boolean {
+  const left = this.visit(ctx.booleano(0));
+  const right = this.visit(ctx.booleano(1));
+  const op = ctx.getChild(1).getText();
+
+  if (op === 'ou') return left || right;
+  if (op === 'xor') return left !== right; // Lógica de XOR
+  return false;
+}`
+  },
+  3: {
+    title: "Relações de Comparação",
+    explanation: "Expansão dos operadores relacionais para suportar todas as condições matemáticas básicas entre inteiros.",
+    code: `visitOpRel(ctx: OpRelContext): boolean {
+  const v1 = this.visit(ctx.expressao(0));
+  const v2 = this.visit(ctx.expressao(1));
+  const op = ctx.getChild(1).getText();
+
+  switch(op) {
+    case '<': return v1 < v2;
+    case '>': return v1 > v2;
+    case '>=': return v1 >= v2;
+    case '<>': return v1 !== v2;
+    default: return v1 === v2;
+  }
+}`
+  },
+  4: {
+    title: "Finalizador de Comando (;)",
+    explanation: "Mudança na gramática para que o ponto e vírgula finalize o comando em vez de apenas separar elementos de uma lista.",
+    code: `// Mudança na regra da Gramática ANTLR:
+// Antes: seqComando: comando (';' comando)* ;
+// Depois:
+seqComando: (comando ';')+ ; 
+
+// Isso garante que todo comando encerre obrigatoriamente com ';'
+// facilitando a recuperação de erros pelo Parser.`
+  },
+  5: {
+    title: "Comando Para (For-loop)",
+    explanation: "Estrutura de repetição clássica. O interpretador inicializa a variável e itera até o limite definido.",
+    code: `visitPara(ctx: ParaContext) {
+  const id = ctx.ID().getText();
+  const start = this.visit(ctx.expressao(0));
+  const end = this.visit(ctx.expressao(1));
+
+  for (let i = start; i <= end; i++) {
+    this.memory[id] = i;
+    this.visit(ctx.comando());
+  }
+}`
+  },
+  6: {
+    title: "Comando Repita (Repeat-times)",
+    explanation: "Açúcar sintático para executar um bloco N vezes sem precisar declarar uma variável de controle no código fonte.",
+    code: `visitRepita(ctx: RepitaContext) {
+  const vezes = this.visit(ctx.expressao());
+  for (let i = 0; i < vezes; i++) {
+    this.visit(ctx.comando());
+  }
+}`
+  },
+  7: {
+    title: "Condicional Senaose (Else-If)",
+    explanation: "Permite múltiplas verificações condicionais em cascata antes do bloco final 'senao'.",
+    code: `visitSe(ctx: SeContext) {
+  const condicaoSe = this.visit(ctx.booleano(0));
+  if (condicaoSe) {
+    return this.visit(ctx.comando(0));
+  }
+
+  // Percorre todos os 'senaose'
+  for (let i = 1; i < ctx.booleano().length; i++) {
+    if (this.visit(ctx.booleano(i))) {
+      return this.visit(ctx.comando(i));
+    }
+  }
+
+  // Executa senao se existir
+  if (ctx.senao()) return this.visit(ctx.comando_final());
+}`
+  },
+  8: {
+    title: "Comando Escolha (Switch)",
+    explanation: "Avaliação de uma expressão contra múltiplos casos literais, incluindo suporte a um caso padrão (_).",
+    code: `visitEscolha(ctx: EscolhaContext) {
+  const valor = this.visit(ctx.expressao(0));
+  let matched = false;
+
+  for (let i = 1; i < ctx.expressao().length; i++) {
+    if (valor === this.visit(ctx.expressao(i))) {
+      this.visit(ctx.comando(i-1));
+      matched = true;
+      break;
+    }
+  }
+
+  if (!matched && ctx.defaultCase()) {
+    this.visit(ctx.comando_default());
+  }
+}`
+  },
+  9: {
+    title: "Atribuição Paralela",
+    explanation: "Permite atribuir múltiplos valores a múltiplas variáveis simultaneamente. Essencial para 'swaps' sem variável temporária.",
+    code: `visitAtribuicao(ctx: AtribuicaoContext) {
+  const ids = ctx.IDs().ID().map(id => id.getText());
+  const valores = ctx.expressoes().expressao().map(exp => this.visit(exp));
+
+  // Aplicação atômica para permitir swaps: a, b := b, a
+  ids.forEach((id, index) => {
+    this.memory[id] = valores[index];
+  });
+}`
+  },
+  10: {
+    title: "Exiba Polimórfico",
+    explanation: "O comando exiba agora detecta se o argumento é um literal de texto ou uma expressão numérica.",
+    code: `visitExiba(ctx: ExibaContext) {
+  if (ctx.TEXTO()) {
+    console.log(ctx.TEXTO().getText().replace(/"/g, ''));
+  } else {
+    const val = this.visit(ctx.expressao());
+    console.log(val.toString());
+  }
+}`
+  }
+};
+
+const App = () => {
+  const [activeTask, setActiveTask] = useState(1);
+  const [executionResult, setExecutionResult] = useState([]);
+  const [viewMode, setViewMode] = useState('ide'); // 'ide' ou 'grammar'
+
+  const handleRun = () => {
+    const demoLogs = {
+      1: ["Iniciando Operações Matemáticas...", "Entrada: 10 / 2 = 5", "Entrada: 2 ^ 3 = 8", "Sucesso."],
+      2: ["Testando Lógica Booleana...", "v = verdadeiro, f = falso", "v ou f -> verdadeiro", "v xor v -> falso", "v xor f -> verdadeiro"],
+      3: ["Validando Relacionais...", "5 < 10: verdadeiro", "10 <> 10: falso", "8 >= 8: verdadeiro"],
+      5: ["Iniciando Loop Para...", "i = 1", "i = 2", "i = 3", "i = 4", "i = 5", "Loop finalizado."],
+      6: ["Repetindo 3 vezes...", "Execução 1: Ola", "Execução 2: Ola", "Execução 3: Ola"],
+      7: ["Testando Condicionais...", "Nota 4 detectada.", "Caindo no 'senaose' (Nota >= 3)", "Exibindo: Recuperação"],
+      8: ["Escolha x = 2", "Match no caso '2'", "Exibindo: dois"],
+      9: ["Atribuição Paralela: a, b := 10, 20", "Swap: a, b := b, a", "Resultado: a=20, b=10"],
+      10: ["Exiba Polimórfico...", "String: 'Ola Mundo'", "Expressão (50*2): 100"]
+    };
+    setExecutionResult(demoLogs[activeTask] || []);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans selection:bg-cyan-500/30">
+      
+      {/* Background Decor */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-900/10 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
+      </div>
+
+      <div className="relative z-10 p-4 md:p-8 max-w-7xl mx-auto">
+        
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 border-b border-slate-800 pb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-cyan-500 to-indigo-600 rounded-2xl shadow-lg shadow-cyan-500/20">
+              <Cpu className="text-white w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-white tracking-tight italic">ENQUANTO <span className="text-cyan-400">PRO</span></h1>
+              <p className="text-slate-500 font-mono text-sm uppercase tracking-widest">Hub de Implementação de Compiladores</p>
+            </div>
+          </div>
+          
+          <div className="flex bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+            <button 
+              onClick={() => setViewMode('ide')}
+              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'ide' ? 'bg-slate-800 text-cyan-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Simulador
+            </button>
+            <button 
+              onClick={() => setViewMode('grammar')}
+              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${viewMode === 'grammar' ? 'bg-slate-800 text-cyan-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Gramática G4
+            </button>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Sidebar */}
+          <aside className="lg:col-span-3 space-y-2">
+            <div className="flex items-center gap-2 px-2 mb-4">
+              <Layers size={16} className="text-cyan-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Mapa de Funcionalidades</span>
+            </div>
+            {Object.keys(TASK_DETAILS).map((id) => (
+              <button
+                key={id}
+                onClick={() => setActiveTask(Number(id))}
+                className={`w-full text-left p-4 rounded-xl transition-all border group relative overflow-hidden ${
+                  activeTask === Number(id) 
+                  ? 'bg-cyan-500/10 border-cyan-500/50 text-white' 
+                  : 'bg-transparent border-slate-800/50 hover:border-slate-700 text-slate-500'
+                }`}
+              >
+                <div className="flex justify-between items-center relative z-10">
+                  <span className="text-sm font-bold truncate">Tarefa {id}</span>
+                  <ChevronRight size={14} className={activeTask === Number(id) ? 'text-cyan-400' : 'text-slate-800'} />
+                </div>
+                {activeTask === Number(id) && <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-500"></div>}
+              </button>
+            ))}
+          </aside>
+
+          {/* Main Area */}
+          <main className="lg:col-span-9 space-y-8">
+            {viewMode === 'grammar' ? (
+              <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+                <div className="bg-slate-900 px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                  <span className="font-mono text-sm text-cyan-500">Enquanto.g4</span>
+                  <FileCode size={18} className="text-slate-600" />
+                </div>
+                <pre className="p-8 text-sm font-mono leading-relaxed text-slate-400 overflow-auto h-[600px] scrollbar-thin">
+                  <code>{UPDATED_GRAMMAR}</code>
+                </pre>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Content Header */}
+                <div className="bg-slate-900/50 p-8 rounded-3xl border border-slate-800/50 backdrop-blur-sm">
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <h2 className="text-4xl font-bold text-white mb-3">
+                        {TASK_DETAILS[activeTask].title}
+                      </h2>
+                      <p className="text-slate-400 text-lg max-w-2xl leading-relaxed">
+                        {TASK_DETAILS[activeTask].explanation}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleRun}
+                      className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black transition-all shadow-xl shadow-cyan-900/20 active:scale-95"
+                    >
+                      <Play size={20} fill="currentColor" />
+                      EXECUTAR
+                    </button>
+                  </div>
+                </div>
+
+                {/* Grid Console & Code */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                  {/* Console */}
+                  <div className="bg-black rounded-3xl border border-slate-800 overflow-hidden flex flex-col min-h-[400px]">
+                    <div className="bg-slate-900/80 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                      <div className="flex gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500 flex items-center gap-2">
+                        <Terminal size={12} /> SAÍDA_INTERPRETADOR
+                      </span>
+                    </div>
+                    <div className="p-6 font-mono text-sm space-y-3 flex-1">
+                      {executionResult.length > 0 ? (
+                        executionResult.map((line, i) => (
+                          <div key={i} className="flex gap-4 animate-in fade-in slide-in-from-left-2">
+                            <span className="text-slate-800 select-none w-4">{i+1}</span>
+                            <span className="text-green-400 flex items-center gap-2">
+                              <ChevronRight size={12} /> {String(line)}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-slate-700 italic">Pronto para execução...</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* TypeScript Source View */}
+                  <div className="bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden flex flex-col min-h-[400px]">
+                    <div className="bg-slate-900 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] font-mono text-cyan-500 flex items-center gap-2 uppercase tracking-widest">
+                        <Braces size={12} /> implementacao_logica.ts
+                      </span>
+                    </div>
+                    <pre className="p-6 text-[13px] font-mono leading-relaxed text-slate-300 overflow-auto scrollbar-thin">
+                      <code>{TASK_DETAILS[activeTask].code}</code>
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Technical Overview Section */}
+                <section className="bg-slate-900/20 rounded-3xl p-8 border border-slate-800/50">
+                  <div className="flex items-center gap-3 mb-6">
+                    <BookOpen size={20} className="text-cyan-400" />
+                    <h3 className="text-xl font-bold text-white uppercase tracking-tighter">Documentação Técnica das Tarefas</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-sm text-slate-400 leading-relaxed">
+                    <div>
+                      <h4 className="text-white font-bold mb-2 flex items-center gap-2">
+                        <Binary size={14} className="text-cyan-500" /> Analisador Léxico (Lexer)
+                      </h4>
+                      <p>Foram incluídos tokens para novos operadores como <code>^</code>, <code>/</code>, <code>ou</code>, <code>xor</code> e comparadores. O token <code>;</code> agora é um finalizador rígido.</p>
+                    </div>
+                    <div>
+                      <h4 className="text-white font-bold mb-2 flex items-center gap-2">
+                        <Binary size={14} className="text-cyan-500" /> Analisador Sintático (Parser)
+                      </h4>
+                      <p>As regras de comando foram expandidas para suportar estruturas complexas como o <code>escolha</code> e o <code>para</code>.</p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            )}
+          </main>
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-16 pt-8 border-t border-slate-900 flex justify-between items-center text-[10px] font-mono text-slate-600 uppercase tracking-[0.2em]">
+          <div className="flex gap-6">
+            <span>Desenvolvido com TypeScript 5.0</span>
+            <span>ANTLRv4 Optimized</span>
+            <span>Visitor Pattern Engine</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={12} className="text-cyan-500" />
+            Sistema Operacional
+          </div>
+        </footer>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #334155; }
+      `}} />
+    </div>
+  );
+};
+
+export default App;
