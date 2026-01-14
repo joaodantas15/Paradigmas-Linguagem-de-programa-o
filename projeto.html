@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Masterminds | Interpretador Enquanto++</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00d2ff;
+            --secondary: #3a7bd5;
+            --accent: #10b981;
+            --bg-dark: #020617;
+            --card-bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: #f1f5f9;
+            scroll-behavior: smooth;
+        }
+
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glow {
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.15);
+        }
+
+        .arch-node {
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .arch-node:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        }
+
+        pre {
+            background: #010409 !important;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #1e293b;
+        }
+
+        .keyword { color: #ff7b72; }
+        .function { color: #d2a8ff; }
+        .string { color: #a5d6ff; }
+        .comment { color: #8b949e; }
+    </style>
+</head>
+<body class="selection:bg-blue-500 selection:text-white">
+
+    <!-- Hero Section -->
+    <header class="relative overflow-hidden pt-20 pb-32 px-4">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent -z-10"></div>
+        <div class="max-w-6xl mx-auto text-center">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm mb-6 animate-pulse">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                Upgrade: Versão 2.0 (TypeScript Edition)
+            </div>
+            <h1 class="text-6xl md:text-8xl font-extrabold mb-6 tracking-tight">
+                Linguagem <span class="gradient-text">Enquanto++</span>
+            </h1>
+            <p class="text-xl text-slate-400 max-w-3xl mx-auto font-light leading-relaxed">
+                Uma implementação avançada de paradigmas de programação. De gramáticas formais a comandos complexos como <strong>escolha</strong>, <strong>para</strong> e <strong>atribuição paralela</strong>.
+            </p>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 -mt-16">
+        
+        <!-- Arquitetura Visual (Diagrama do Professor) -->
+        <section class="mb-24">
+            <div class="glass rounded-3xl p-8 md:p-12 glow">
+                <div class="flex flex-col md:flex-row gap-12 items-center">
+                    <div class="md:w-1/2">
+                        <h2 class="text-3xl font-bold mb-6 flex items-center gap-3">
+                            <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            Pipeline de Execução
+                        </h2>
+                        <p class="text-slate-400 mb-8">
+                            Nossa arquitetura segue o diagrama de fluxo da disciplina, convertendo o código fonte em uma árvore de sintaxe abstrata (AST) processada em tempo real por um Visitor TypeScript.
+                        </p>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                <h4 class="font-bold text-blue-400 text-sm mb-1">Front-end</h4>
+                                <p class="text-[10px] text-slate-500 uppercase">Lexer & Parser ANTLR4</p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                <h4 class="font-bold text-emerald-400 text-sm mb-1">Back-end</h4>
+                                <p class="text-[10px] text-slate-500 uppercase">Visitor Interpreter</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:w-1/2 flex flex-col items-center gap-3">
+                        <div class="arch-node w-full p-3 glass rounded-lg text-center font-mono text-xs">Código Fonte (.enq)</div>
+                        <div class="text-blue-500 text-xs">▼</div>
+                        <div class="arch-node w-full p-3 glass rounded-lg border-blue-500/30 text-center font-mono text-xs bg-blue-500/5 text-blue-300 italic">ANTLR4 Generator</div>
+                        <div class="text-blue-500 text-xs">▼</div>
+                        <div class="arch-node w-full p-4 glass rounded-xl border-emerald-500/40 text-center shadow-lg shadow-emerald-500/10">
+                            <span class="block font-bold text-emerald-400 text-sm mb-1 uppercase tracking-widest">AST Node Tree</span>
+                            <div class="flex justify-center gap-2 opacity-40 text-[8px] font-mono">
+                                <span>[LOOP]</span><span>[OP_REL]</span><span>[ASSIGN]</span>
+                            </div>
+                        </div>
+                        <div class="text-emerald-500 text-xs">▼</div>
+                        <div class="arch-node w-full p-3 glass rounded-lg border-emerald-500/30 text-center font-mono text-xs">TypeScript Visitor</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grade de Novas Tarefas -->
+        <h3 class="text-2xl font-bold mb-8 text-center uppercase tracking-widest text-slate-500">Recursos Implementados</h3>
+        
+        <div class="grid md:grid-cols-3 gap-6 mb-24">
+            <!-- Matemática -->
+            <div class="glass p-6 rounded-2xl arch-node">
+                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 text-blue-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 13h.01M12 13h.01M15 13h.01M12 17h.01"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold mb-2">Matemática & Lógica</h3>
+                <p class="text-slate-400 text-xs leading-relaxed">Inclusão de divisão (<code>/</code>), exponenciação (<code>^</code>), operadores <code>ou</code> / <code>xor</code> e relações <code><></code>, <code><</code>, <code>></code>, <code>>=</code>.</p>
+            </div>
+
+            <!-- Estruturas -->
+            <div class="glass p-6 rounded-2xl arch-node">
+                <div class="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center mb-4 text-emerald-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold mb-2">Estruturas de Controle</h3>
+                <p class="text-slate-400 text-xs leading-relaxed">Novos comandos <code>para</code> (loop contado), <code>repita</code> (loop fixo), <code>escolha</code> (switch case) e suporte a múltiplos <code>senaose</code>.</p>
+            </div>
+
+            <!-- Sintaxe -->
+            <div class="glass p-6 rounded-2xl arch-node">
+                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center mb-4 text-purple-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
+                <h3 class="text-lg font-bold mb-2">Sintaxe & I/O</h3>
+                <p class="text-slate-400 text-xs leading-relaxed">Ponto e vírgula (<code>;</code>) como finalizador, <strong>atribuição paralela</strong> e comando <code>exiba</code> adaptado para números e textos.</p>
+            </div>
+        </div>
+
+        <!-- Demonstração de Código -->
+        <section class="mb-24">
+            <h2 class="text-3xl font-bold mb-10 text-center">Demonstração das <span class="gradient-text">Tarefas Realizadas</span></h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Coluna 1 -->
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest">Atribuição Paralela & Escolha</h4>
+                        <pre class="font-mono text-sm">
+<span class="comment">// Inversão de valores e Switch</span>
+a, b := 10, 20;
+a, b := b, a;
+
+escolha a
+  10 : exiba "Dez";
+  20 : exiba "Vinte";
+  _  : exiba "Outro";
+;</pre>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest">Múltiplos Senaose</h4>
+                        <pre class="font-mono text-sm">
+se nota >= 6 entao
+  exiba "Aprovado";
+senaose nota >= 3 entao
+  exiba "Recuperação";
+senao
+  exiba "Reprovado";
+;</pre>
+                    </div>
+                </div>
+
+                <!-- Coluna 2 -->
+                <div class="space-y-6">
+                    <div class="glass p-8 rounded-2xl border-l-4 border-l-emerald-500">
+                        <h4 class="text-xs font-bold text-emerald-500 uppercase mb-4">Novos Loops (Para/Repita)</h4>
+                        <div class="font-mono text-sm space-y-4">
+                            <div>
+                                <p class="text-slate-500 italic mb-2">// Contagem de 1 a 5</p>
+                                <span class="text-emerald-400">para</span> i <span class="text-emerald-400">de</span> 1 <span class="text-emerald-400">ate</span> 5 <span class="text-emerald-400">faca</span><br>
+                                &nbsp;&nbsp;escreva i;
+                            </div>
+                            <div class="pt-4 border-t border-slate-700">
+                                <p class="text-slate-500 italic mb-2">// Repetição fixa</p>
+                                <span class="text-emerald-400">repita</span> 10 <span class="text-emerald-400">vezes</span><br>
+                                &nbsp;&nbsp;exiba "Executando...";
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 bg-slate-900 rounded-xl border border-slate-800">
+                        <h4 class="text-xs font-bold text-blue-400 uppercase mb-2">Lógica de Implementação (TS)</h4>
+                        <p class="text-[10px] text-slate-500 mb-4">Uso de <code>Math.pow</code> e <code>Math.floor</code> para novas operações.</p>
+                        <pre class="text-[11px] py-2">
+case '^': return Math.pow(left, right);
+case '/': return Math.floor(left / right);</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="py-16 border-t border-slate-800 text-center">
+        <p class="text-slate-500 text-sm">
+            Disciplina de Paradigmas de Linguagem de Programação. <br>
+            <span class="text-xs italic opacity-50">"Programs must be written for people to read, and only incidentally for machines to execute."</span>
+        </p>
+    </footer>
+
+</body>
+</html>
